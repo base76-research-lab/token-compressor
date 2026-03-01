@@ -84,4 +84,20 @@ because the constraint survived.
 
 ---
 
+---
+
+## Live validation (2026-03-01)
+
+Tested on structured research text with tree diagram formatting (`├──`, `└──`):
+
+| Input | Tokens in | Tokens out | Saved | Mode | Coverage |
+|-------|-----------|------------|-------|------|----------|
+| Base76 research profile (structured EN) | 1116 | 275 | **75%** | COMPRESSED | 89.1% |
+
+**Note on threshold:** Default threshold lowered from 0.90 → 0.85 after observing that
+structured formatting (tree diagrams, ASCII art) reduces cosine similarity scores without
+meaningful semantic loss. At 0.85, structured prompts compress correctly.
+
+---
+
 *Results from Base76 Research Lab exp_017 · MIT License*
