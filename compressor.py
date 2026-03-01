@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 import ollama
 
-THRESHOLD: float = 0.90
+THRESHOLD: float = 0.85
 MIN_TOKENS: int = 80          # below this: skip pipeline entirely
 COMPRESS_MODEL: str = "llama3.2:1b"
 EMBED_MODEL: str = "nomic-embed-text"
