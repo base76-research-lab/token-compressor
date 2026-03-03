@@ -1,5 +1,7 @@
 # token-compressor
 
+mcp-name: io.github.base76-research-lab/token-compressor
+
 **Semantic prompt compression for LLM workflows. Reduce token usage by 40–60% without losing meaning.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.base76-research-lab/token-compressor",
+  "description": "Compress prompts 40-60% using local LLM + embedding validation. Preserves all conditionals.",
+  "repository": {
+    "url": "https://github.com/base76-research-lab/token-compressor",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "token-compressor-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": []
+    }
+  ]
+}

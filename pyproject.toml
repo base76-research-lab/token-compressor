@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "token-compressor-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server that compresses prompts 40-60% using local LLM + embedding validation"
 readme = "README.md"
 license = { text = "MIT" }
