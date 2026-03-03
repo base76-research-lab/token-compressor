@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-compressor-mcp"
+version = "0.1.0"
+description = "MCP server that compresses prompts 40-60% using local LLM + embedding validation"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["mcp", "token", "compression", "llm", "ollama", "prompt"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "mcp>=1.0",
+  "ollama",
+  "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/base76-research-lab/token-compressor"
+Repository = "https://github.com/base76-research-lab/token-compressor"
+
+[project.scripts]
+token-compressor-mcp = "token_compressor_mcp:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["token_compressor_mcp"]

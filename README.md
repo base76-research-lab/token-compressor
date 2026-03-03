@@ -104,15 +104,17 @@ This runs on every prompt submission and writes the compressed version to a temp
 
 ## MCP server
 
-The included MCP server exposes compression as a tool callable from any MCP-compatible client (Claude Code, etc.):
+The MCP server exposes compression as a tool callable from Claude Code and any MCP-compatible client.
+
+**Install:**
 
 ```bash
-python3 mcp_server.py
+pip install token-compressor-mcp
 ```
 
 **Tool:** `compress_prompt`
 - Input: `text` (string)
-- Output: compressed text + stats
+- Output: compressed text + stats footer
 
 **Claude Code MCP config** (`~/.claude/settings.json`):
 
@@ -120,8 +122,22 @@ python3 mcp_server.py
 {
   "mcpServers": {
     "token-compressor": {
+      "command": "uvx",
+      "args": ["token-compressor-mcp"]
+    }
+  }
+}
+```
+
+Or from source:
+
+```json
+{
+  "mcpServers": {
+    "token-compressor": {
       "command": "python3",
-      "args": ["/path/to/token-compressor/mcp_server.py"]
+      "args": ["-m", "token_compressor_mcp"],
+      "cwd": "/path/to/token-compressor"
     }
   }
 }
