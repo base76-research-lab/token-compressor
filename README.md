@@ -1,4 +1,5 @@
-# token-compressor
+# token-compressor 
+## Reduce LLM prompt tokens by 30–70% while preserving semantic meaning.
 
 mcp-name: io.github.base76-research-lab/token-compressor
 
