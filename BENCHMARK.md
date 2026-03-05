@@ -100,4 +100,15 @@ meaningful semantic loss. At 0.85, structured prompts compress correctly.
 
 ---
 
+## MVP integration note (2026-03-05)
+
+`token-compressor` is now showcased in the live Intent Compiler MVP:
+
+- Demo: https://intent-compiler-mvp.pages.dev
+- Integration context: idea -> spec -> compressed output
+
+This provides a public validation surface for the compressed representation in a real UX flow.
+
+---
+
 *Results from Base76 Research Lab exp_017 · MIT License*

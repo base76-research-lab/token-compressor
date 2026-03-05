@@ -13,6 +13,15 @@ Built by [Base76 Research Lab](https://base76.se) — research into epistemic AI
 
 ---
 
+## Live demo
+
+Intent Compiler MVP is now live and uses this project as part of the idea -> spec -> compressed output flow:
+
+- Live: https://intent-compiler-mvp.pages.dev
+- Product repo: https://github.com/base76-research-lab/token-compressor
+
+---
+
 ## What it does
 
 token-compressor is a two-stage pipeline that compresses prompts before they reach an LLM:
