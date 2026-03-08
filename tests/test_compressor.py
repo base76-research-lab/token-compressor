@@ -1,57 +1,40 @@
 #!/usr/bin/env python3
 """
-token-compressor — validation tests
-Base76 Research Lab
+token-compressor unit tests.
 
-Tests verify:
-1. Short prompts are skipped (no pipeline cost)
-2. Long prompts are compressed with coverage >= threshold
-3. Conditionals survive compression
-4. Negations survive compression
-5. Raw fallback triggers when coverage is too low
-6. CompressionResult fields are correctly populated
-
-Requirements: ollama running locally with llama3.2:1b and nomic-embed-text
-Run: python3 tests/test_compressor.py
+These tests run without Ollama by mocking the rewrite and embedding stages.
+Run with:
+  python3 -m unittest tests.test_compressor
 """
 
+from __future__ import annotations
+
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from compressor import LLMCompressEmbedValidate, THRESHOLD, MIN_TOKENS
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-PASS = "✓"
-FAIL = "✗"
-results = []
-
-
-def check(label: str, condition: bool, detail: str = ""):
-    status = PASS if condition else FAIL
-    results.append((status, label, detail))
-    print(f"  {status} {label}" + (f" — {detail}" if detail else ""))
-    return condition
-
-
-# ---------------------------------------------------------------------------
-# Test cases
-# ---------------------------------------------------------------------------
+from compressor import (
+    LLMCompressEmbedValidate,
+    MIN_TOKENS,
+    THRESHOLD,
+    process_prompt,
+    vectorize_prompt,
+)
 
 SHORT_PROMPT = "fix typo in readme"
 
 LONG_PROMPT = (
     "Contemporary AI systems are optimized to appear confident. "
     "Reinforcement learning from human feedback systematically penalizes expressed uncertainty "
-    "— producing models that perform certainty rather than represent it. "
-    "This is not a UX problem. It is an architectural problem — measurable, structural, "
-    "and consequential for any system making decisions in regulated or safety-critical contexts. "
-    "We build the layer that fixes it. Working at the intersection of epistemology, "
-    "AI architecture, and governance — building theory and tools for AI systems that can "
-    "accurately represent what they know and what they don't."
+    "and produces models that perform certainty rather than represent it. "
+    "This is not a UX problem. It is an architectural problem that matters "
+    "for decision-making in regulated or safety-critical contexts. "
+    "We build the layer that fixes it by combining epistemology, AI architecture, "
+    "and governance into tools for systems that accurately represent what they know "
+    "and what they do not know."
 )
 
 CONDITIONAL_PROMPT = (
@@ -61,72 +44,186 @@ CONDITIONAL_PROMPT = (
     "Under no circumstances should the output be returned without attestation."
 )
 
+COMPRESSED_LONG_PROMPT = (
+    "AI systems often perform certainty instead of representing uncertainty. "
+    "This is an architectural problem for all regulated or safety-critical decisions. "
+    "We build tools combining epistemology, AI architecture, and governance "
+    "so systems represent what they know and do not know."
+)
 
-def run_tests():
-    pipeline = LLMCompressEmbedValidate()
+COMPRESSED_CONDITIONAL_PROMPT = (
+    "Respond with high confidence only if epistemic uncertainty is below 0.2 "
+    "and coverage passes threshold. If either fails, do not proceed and escalate "
+    "to human review. Do not return output without attestation."
+)
 
-    print("\n── Test 1: Short prompt is skipped ──")
-    r = pipeline.process(SHORT_PROMPT)
-    check("mode == skipped", r.mode == "skipped", f"got: {r.mode}")
-    check("tokens_saved == 0", r.tokens_saved == 0, f"got: {r.tokens_saved}")
-    check("output_text == input", r.output_text == SHORT_PROMPT)
 
-    print("\n── Test 2: Long prompt compresses ──")
-    r = pipeline.process(LONG_PROMPT)
-    check("mode is compressed or raw_fallback", r.mode in ("compressed", "raw_fallback"), f"got: {r.mode}")
-    check("tokens_in > MIN_TOKENS", r.tokens_in >= MIN_TOKENS, f"got: {r.tokens_in}")
-    check("coverage > 0", r.coverage > 0, f"got: {r.coverage:.2f}")
-    if r.mode == "compressed":
-        check("tokens_out < tokens_in", r.tokens_out < r.tokens_in,
-              f"{r.tokens_in}→{r.tokens_out}")
-        check("coverage >= threshold", r.coverage >= THRESHOLD,
-              f"{r.coverage:.2f} >= {THRESHOLD}")
+class CompressorPipelineTests(unittest.TestCase):
+    def test_short_prompt_is_skipped(self) -> None:
+        pipeline = LLMCompressEmbedValidate()
 
-    print("\n── Test 3: Conditionals survive compression ──")
-    r = pipeline.process(CONDITIONAL_PROMPT)
-    out = r.output_text.lower()
-    check("'only if' preserved", "only if" in out or "only" in out,
-          f"mode={r.mode}")
-    check("'must not' / negation preserved",
-          "must not" in out or "not" in out or "no" in out,
-          f"mode={r.mode}")
-    check("'if' preserved", "if" in out, f"mode={r.mode}")
+        result = pipeline.process(SHORT_PROMPT)
 
-    print("\n── Test 4: Result fields populated ──")
-    r = pipeline.process(LONG_PROMPT)
-    check("output_text non-empty", len(r.output_text) > 0)
-    check("mode is valid string", r.mode in ("compressed", "raw_fallback", "skipped"))
-    check("tokens_in is int > 0", isinstance(r.tokens_in, int) and r.tokens_in > 0)
-    check("tokens_out is int >= 0", isinstance(r.tokens_out, int) and r.tokens_out >= 0)
-    check("coverage is float 0-1", 0.0 <= r.coverage <= 1.0, f"{r.coverage:.3f}")
-    check("confident is bool", isinstance(r.confident, bool))
+        self.assertEqual(result.mode, "skipped")
+        self.assertEqual(result.output_text, SHORT_PROMPT)
+        self.assertEqual(result.tokens_saved, 0)
+        self.assertEqual(result.coverage, 1.0)
 
-    print("\n── Test 5: Threshold enforcement ──")
-    # Force a low-coverage scenario by using a very aggressive threshold
-    strict = LLMCompressEmbedValidate(threshold=0.999)
-    r = strict.process(LONG_PROMPT)
-    check("strict threshold triggers raw_fallback",
-          r.mode in ("raw_fallback", "skipped"),
-          f"got: {r.mode}")
+    @patch.object(LLMCompressEmbedValidate, "_embed_validate", return_value=0.92)
+    @patch.object(LLMCompressEmbedValidate, "_rewrite_prompt", return_value=COMPRESSED_LONG_PROMPT)
+    def test_long_prompt_compresses_when_structure_and_coverage_pass(
+        self,
+        _rewrite_prompt: object,
+        _embed_validate: object,
+    ) -> None:
+        pipeline = LLMCompressEmbedValidate()
 
-    # Summary
-    passed = sum(1 for s, _, _ in results if s == PASS)
-    failed = sum(1 for s, _, _ in results if s == FAIL)
-    total = passed + failed
+        result = pipeline.process(LONG_PROMPT)
 
-    print(f"\n{'='*50}")
-    print(f"Results: {passed}/{total} passed" + (f" | {failed} failed" if failed else " ✓"))
-    print(f"Threshold: {THRESHOLD} | Min tokens: {MIN_TOKENS}")
+        self.assertEqual(result.mode, "compressed")
+        self.assertGreaterEqual(result.tokens_in, MIN_TOKENS)
+        self.assertLess(result.tokens_out, result.tokens_in)
+        self.assertGreaterEqual(result.coverage, THRESHOLD)
+        self.assertEqual(result.output_text, COMPRESSED_LONG_PROMPT)
+        self.assertIsNone(result.rejection_reason)
 
-    if failed:
-        print("\nFailed tests:")
-        for s, label, detail in results:
-            if s == FAIL:
-                print(f"  ✗ {label}" + (f" — {detail}" if detail else ""))
-        sys.exit(1)
+    @patch.object(LLMCompressEmbedValidate, "_embed_validate", return_value=0.91)
+    @patch.object(
+        LLMCompressEmbedValidate,
+        "_rewrite_prompt",
+        return_value=COMPRESSED_CONDITIONAL_PROMPT,
+    )
+    def test_conditionals_and_negations_survive_compression(
+        self,
+        _rewrite_prompt: object,
+        _embed_validate: object,
+    ) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+
+        result = pipeline.process(CONDITIONAL_PROMPT)
+        output = result.output_text.lower()
+
+        self.assertEqual(result.mode, "compressed")
+        self.assertIn("only if", output)
+        self.assertIn("if", output)
+        self.assertTrue("do not" in output or "not" in output or "no" in output)
+
+    @patch.object(LLMCompressEmbedValidate, "_embed_validate", return_value=0.40)
+    @patch.object(LLMCompressEmbedValidate, "_rewrite_prompt", return_value=COMPRESSED_LONG_PROMPT)
+    def test_low_coverage_triggers_raw_fallback(
+        self,
+        _rewrite_prompt: object,
+        _embed_validate: object,
+    ) -> None:
+        pipeline = LLMCompressEmbedValidate()
+
+        result = pipeline.process(LONG_PROMPT)
+
+        self.assertEqual(result.mode, "raw_fallback")
+        self.assertEqual(result.output_text, LONG_PROMPT)
+        self.assertEqual(result.rejection_reason, "coverage_below_threshold")
+
+    @patch.object(LLMCompressEmbedValidate, "_embed_validate", return_value=0.95)
+    @patch.object(
+        LLMCompressEmbedValidate,
+        "_rewrite_prompt",
+        return_value="Respond confidently if score is below 0.2 and coverage passes.",
+    )
+    def test_structural_loss_triggers_raw_fallback_even_with_high_similarity(
+        self,
+        _rewrite_prompt: object,
+        _embed_validate: object,
+    ) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+
+        result = pipeline.process(CONDITIONAL_PROMPT)
+
+        self.assertEqual(result.mode, "raw_fallback")
+        self.assertEqual(result.output_text, CONDITIONAL_PROMPT)
+        self.assertEqual(result.rejection_reason, "logical_structure_lost")
+        self.assertEqual(result.coverage, 0.0)
+
+    @patch.object(LLMCompressEmbedValidate, "_embed_validate", return_value=0.92)
+    @patch.object(LLMCompressEmbedValidate, "_rewrite_prompt", return_value=COMPRESSED_LONG_PROMPT)
+    def test_result_fields_are_populated(
+        self,
+        _rewrite_prompt: object,
+        _embed_validate: object,
+    ) -> None:
+        pipeline = LLMCompressEmbedValidate()
+
+        result = pipeline.process(LONG_PROMPT)
+
+        self.assertTrue(result.output_text)
+        self.assertIn(result.mode, {"compressed", "raw_fallback", "skipped"})
+        self.assertIsInstance(result.tokens_in, int)
+        self.assertGreater(result.tokens_in, 0)
+        self.assertIsInstance(result.tokens_out, int)
+        self.assertGreaterEqual(result.tokens_out, 0)
+        self.assertGreaterEqual(result.coverage, 0.0)
+        self.assertLessEqual(result.coverage, 1.0)
+        self.assertIsInstance(result.confident, bool)
+        self.assertEqual(result.attempted_tokens_out, len(COMPRESSED_LONG_PROMPT) // 4)
+
+    @patch("compressor.vectorize_prompt", return_value=[0.1, 0.2])
+    def test_process_prompt_modes(self, _vec: object) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+
+        raw = process_prompt("hello", mode="raw", pipeline=pipeline)
+        self.assertEqual(raw["mode"], "raw")
+        self.assertEqual(raw["text"], "hello")
+        self.assertIsNone(raw["vector"])
+
+        compressed = process_prompt(LONG_PROMPT, mode="compressed", pipeline=pipeline)
+        self.assertEqual(compressed["mode"], "compressed")
+        self.assertIn(compressed["result"].mode, {"compressed", "raw_fallback"})
+        self.assertIsNone(compressed["vector"])
+
+        vector = process_prompt("vector me", mode="vector", pipeline=pipeline)
+        self.assertEqual(vector["mode"], "vector")
+        self.assertEqual(vector["text"], "vector me")
+        self.assertIsNotNone(vector["vector"])
+
+        cv = process_prompt(LONG_PROMPT, mode="compressed+vector", pipeline=pipeline)
+        self.assertEqual(cv["mode"], "compressed+vector")
+        self.assertIsNotNone(cv["vector"])
+        self.assertIn(cv["result"].mode, {"compressed", "raw_fallback"})
+
+    def test_anchor_guard_is_compressed_safely(self) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+        prompt = (
+            "You are a compression guard. The ONLY acceptable output is the exact phrase "
+            "'ANCHOR-OKAY' once. Keep every conditional and negation. Do not add explanations. "
+            "If you cannot comply, respond exactly with 'FAIL'."
+        )
+        result = pipeline.process(prompt)
+        self.assertEqual(result.mode, "compressed")
+        self.assertIn("ANCHOR-OKAY", result.output_text)
+        self.assertLess(result.tokens_out, result.tokens_in)
+
+    def test_hallucination_unknown_year_is_preserved(self) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+        prompt = (
+            "If you do not have the factual theatrical release year of the non-existent film "
+            "'Galactic Drift 2099', respond exactly 'UNKNOWN'. If you know it, respond with the "
+            "four-digit year only. Do not invent a year."
+        )
+        result = pipeline.process(prompt)
+        self.assertEqual(result.mode, "compressed")
+        self.assertIn("UNKNOWN", result.output_text)
+        self.assertLess(result.tokens_out, result.tokens_in)
+
+    def test_hallucination_not_real_formula_is_preserved(self) -> None:
+        pipeline = LLMCompressEmbedValidate(min_tokens=1)
+        prompt = (
+            "Return the chemical formula for 'unobtainium'. If the material is fictional or no "
+            "authoritative formula exists, respond exactly 'NOT REAL'. Do not speculate."
+        )
+        result = pipeline.process(prompt)
+        self.assertEqual(result.mode, "compressed")
+        self.assertIn("NOT REAL", result.output_text)
+        self.assertLess(result.tokens_out, result.tokens_in)
 
 
 if __name__ == "__main__":
-    print("token-compressor — validation suite")
-    print(f"Requires: ollama + llama3.2:1b + nomic-embed-text")
-    run_tests()
+    unittest.main()

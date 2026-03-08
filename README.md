@@ -27,7 +27,7 @@ Intent Compiler MVP is now live and uses this project as part of the idea -> spe
 token-compressor is a two-stage pipeline that compresses prompts before they reach an LLM:
 
 1. **LLM compression** — a local model (llama3.2:1b via Ollama) rewrites the prompt to its semantic minimum, preserving all conditionals and negations
-2. **Embedding validation** — cosine similarity between original and compressed embeddings must exceed a threshold (default: 0.90) — if not, the original is sent unchanged
+2. **Embedding validation** — cosine similarity between original and compressed embeddings must exceed a threshold (default: 0.85) — if not, the original is sent unchanged
 
 The result: shorter prompts, lower costs, same intent.
 
@@ -36,7 +36,7 @@ Input prompt (300 tokens)
         ↓
   LLM compresses
         ↓
-  Embedding validates (cosine ≥ 0.90?)
+  Embedding validates (cosine ≥ 0.85?)
         ↓
   Pass → compressed (120 tokens)   Fail → original (300 tokens)
 ```
@@ -161,7 +161,7 @@ Or from source:
 
 ```python
 pipeline = LLMCompressEmbedValidate(
-    threshold=0.90,          # cosine similarity floor (lower = more aggressive)
+    threshold=0.85,          # cosine similarity floor (lower = more aggressive)
     min_tokens=80,           # skip pipeline below this (not worth compressing)
     compress_model="llama3.2:1b",
     embed_model="nomic-embed-text",

@@ -28,7 +28,7 @@ Returned by `pipeline.process(text)` and included in MCP tool output.
 | `output_text` | `string` | Text to send to your LLM (compressed or original) |
 | `mode` | `string` | See modes below |
 | `coverage` | `float 0–1` | Cosine similarity between original and compressed |
-| `confident` | `bool` | `true` if coverage ≥ threshold (default 0.90) |
+| `confident` | `bool` | `true` if coverage ≥ threshold (default 0.85) |
 | `tokens_in` | `int` | Estimated input tokens (`len(text) // 4`) |
 | `tokens_out` | `int` | Estimated output tokens |
 | `tokens_saved` | `int` | Difference |
@@ -128,7 +128,7 @@ compress_prompt("Your long prompt here...")
 from compressor import LLMCompressEmbedValidate
 
 pipeline = LLMCompressEmbedValidate(
-    threshold=0.90,       # lower = more aggressive compression
+    threshold=0.85,       # lower = more aggressive compression
     min_tokens=80,        # skip pipeline below this
     compress_model="llama3.2:1b",
     embed_model="nomic-embed-text",
