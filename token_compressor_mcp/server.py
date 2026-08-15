@@ -84,11 +84,15 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
         )
 
 
-async def main():
+async def _run():
     from mcp.server.stdio import stdio_server
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
+def main() -> None:
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
